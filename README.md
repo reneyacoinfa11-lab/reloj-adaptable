@@ -33,3 +33,5 @@ Con la app ya publicada, entra a [pwabuilder.com](https://www.pwabuilder.com), p
 - La lectura automática de la hora y la fecha en capturas necesita internet la primera vez (descarga el lector de texto). Si falla, usa *Marcar hora a mano* y *Marcar fecha a mano*.
 - Las imágenes se procesan en el dispositivo y no se envían a ningún servidor.
 - Para publicar un cambio, edita `index.html` y cambia el número de `CACHE` en `sw.js`.
+
+Dirección de la app: https://reneyacoinfa11-lab.github.io/reloj-adaptable/
