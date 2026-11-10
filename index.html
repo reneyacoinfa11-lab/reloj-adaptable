@@ -130,6 +130,8 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
 .dock button { display: grid; justify-items: center; gap: 3px; padding: 8px 4px 6px; border: 0; border-radius: 16px; background: transparent; color: #cfdadf; font: 500 .68rem var(--f-ui); cursor: pointer; }
 .dock button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .dock button[aria-pressed="true"] { background: rgba(255,255,255,.16); color: #fff; }
+.dock { transition: opacity .25s, transform .25s; }
+.dock.hide { opacity: 0; transform: translateY(28px); pointer-events: none; }
 .scrim { position: absolute; inset: 0; z-index: 15; background: transparent; }
 .sheet { position: absolute; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 86px); z-index: 20; max-height: 58%; display: flex; flex-direction: column; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 14px 40px rgba(0,0,0,.4); transform: translateY(calc(100% + 110px)); visibility: hidden; transition: transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s .32s, opacity .2s; }
 .sheet.open { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s, opacity .2s; }
@@ -254,6 +256,7 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
             <label class="sw"><input type="checkbox" id="veilAuto"><span class="track"></span><span>Velo automático</span></label>
           </div>
         </div>
+        <label class="sw"><input type="checkbox" id="autoHide"><span class="track"></span><span>Ocultar el menú al terminar de editar</span></label>
         <button class="btn" id="reset" type="button">Restablecer todo</button>
         <p class="hint">Todo lo que cambias se guarda en este navegador.</p>
       </section>
@@ -291,7 +294,7 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
     style: 'digital', font: 'bri', pos: 'auto', adapt: 'auto',
     veilAuto: true, veil: 0, accentMode: 'auto', accentColor: '#ffd166',
     zoom: 1, px: 0, py: 0, sample: 'atardecer', showZone: false,
-    live: true, overlay: false, cap: null, timeFmt: 'auto', dateFmt: 'auto'
+    live: true, overlay: false, cap: null, timeFmt: 'auto', dateFmt: 'auto', autoHide: true
   };
   var FONTS = { bri: 'var(--f-bri)', mono: 'var(--f-mono)', serif: 'var(--f-serif)' };
   var ZONES = { top: 'Arriba', center: 'Centro', bottom: 'Abajo' };
@@ -581,7 +584,7 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
   function syncControls() {
     function val(id, v) { var e = $(id); if (e.value !== String(v)) e.value = v; }
     val('name', S.name); val('phrase', S.phrase);
-    ['showGreeting', 'date', 'seconds', 'h24', 'veilAuto', 'live', 'overlay'].forEach(function (k) { $(k).checked = !!S[k]; });
+    ['showGreeting', 'date', 'seconds', 'h24', 'veilAuto', 'live', 'overlay', 'autoHide'].forEach(function (k) { $(k).checked = !!S[k]; });
     val('zoom', Math.round(S.zoom * 100)); val('px', S.px); val('py', S.py);
     $('zoomOut').textContent = Math.round(S.zoom * 100) + '%'; $('pxOut').textContent = S.px; $('pyOut').textContent = S.py;
     document.querySelectorAll('.seg').forEach(function (g) {
@@ -925,7 +928,7 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
     var mx = Math.max(0, (dw - w) / 2), my = Math.max(0, (dh - h) / 2);
     return [(cx - ((w - dw) / 2 + S.px / 100 * mx)) / sc, (cy - ((h - dh) / 2 + S.py / 100 * my)) / sc];
   }
-  function stopPick() { picking = null; drag = null; pickEl.hidden = true; scr.classList.remove('picking'); }
+  function stopPick() { picking = null; drag = null; pickEl.hidden = true; scr.classList.remove('picking'); lastPickEnd = Date.now(); dockArm(); }
   function startPick(k, pre) {
     if (S.sample !== 'custom' || !srcs.custom) { oStatus('Sube una captura primero.'); return; }
     closeSheet(); picking = k; scr.classList.add('picking');
@@ -978,7 +981,22 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
   $('pickDate').addEventListener('click', function () { startPick('date'); });
 
   /* ---------- Hojas de la app ---------- */
-  var sheet = $('sheet'), sheetName = null;
+  var sheet = $('sheet'), sheetName = null, dock = $('dock'), dockT = 0, lastPickEnd = 0;
+  function dockArm() {
+    clearTimeout(dockT);
+    if (S.autoHide && !sheetName && !picking) dockT = setTimeout(dockHide, 3500);
+  }
+  function dockShow() { clearTimeout(dockT); dock.classList.remove('hide'); dock.inert = false; dockArm(); }
+  function dockHide() {
+    clearTimeout(dockT);
+    if (sheetName || picking) return;
+    dock.classList.add('hide'); dock.inert = true;
+    try { if (!localStorage.getItem('reloj-hint')) { localStorage.setItem('reloj-hint', '1'); status('Toca la pantalla para mostrar el menú'); } } catch (e) {}
+  }
+  scr.addEventListener('click', function () {
+    if (picking || sheetName || Date.now() - lastPickEnd < 600) return;
+    if (dock.classList.contains('hide')) dockShow(); else dockHide();
+  });
   function markDock(n) { document.querySelectorAll('#dock button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.open === n)); }); }
   function openSheet(n) {
     sheetName = n;
@@ -986,10 +1004,12 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
     $('sheetBody').scrollTop = 0;
     sheet.inert = false; sheet.setAttribute('aria-hidden', 'false'); sheet.classList.add('open');
     $('scrim').hidden = false; markDock(n);
+    clearTimeout(dockT); dock.classList.remove('hide'); dock.inert = false;
   }
   function closeSheet() {
     sheetName = null; sheet.classList.remove('open'); sheet.inert = true; sheet.setAttribute('aria-hidden', 'true');
     $('scrim').hidden = true; markDock(null);
+    dockArm();
   }
   document.querySelectorAll('#dock button').forEach(function (b) {
     b.addEventListener('click', function () { if (sheetName === b.dataset.open) closeSheet(); else openSheet(b.dataset.open); });
@@ -1014,7 +1034,7 @@ input[type="color"] { width: 42px; height: 34px; padding: 2px; border: 1px solid
   $('zoneBtn').addEventListener('click', function () { S.showZone = !S.showZone; update(); save(); });
   $('name').addEventListener('input', function (e) { S.name = e.target.value; applyText(); save(); });
   $('phrase').addEventListener('input', function (e) { S.phrase = e.target.value; applyText(); save(); });
-  ['showGreeting', 'date', 'seconds', 'h24', 'veilAuto', 'live', 'overlay'].forEach(function (k) {
+  ['showGreeting', 'date', 'seconds', 'h24', 'veilAuto', 'live', 'overlay', 'autoHide'].forEach(function (k) {
     $(k).addEventListener('change', function (e) { S[k] = e.target.checked; update(); save(); });
   });
   $('zoom').addEventListener('input', function (e) { S.zoom = +e.target.value / 100; update(); save(); });

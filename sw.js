@@ -1,5 +1,5 @@
 /* Service worker: la app funciona sin conexión (lo del mismo sitio se guarda en caché). */
-var CACHE = 'reloj-adaptable-v1';
+var CACHE = 'reloj-adaptable-v2';
 var SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
